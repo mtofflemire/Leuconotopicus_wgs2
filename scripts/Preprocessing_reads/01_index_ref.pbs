@@ -4,7 +4,7 @@
 #PBS -l nodes=1:ppn=2,mem=8gb,walltime=02:00:00
 #PBS -q batch
 #PBS -j oe
-#PBS -o /usr/scratch2/userdata2/mtofflemire/projects/leuconotopicus/reseq_WD/round_1_preprocessing_wgs/alignments/index_reference_mem2.log
+#PBS -o /usr/scratch2/userdata2/mtofflemire/projects/leuconotopicus/reseq_WD/round_1_preprocessing_wgs/01_index_reference.log
 
 set -euo pipefail
 cd "$PBS_O_WORKDIR"
