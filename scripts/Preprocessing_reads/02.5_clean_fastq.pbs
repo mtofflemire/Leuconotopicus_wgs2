@@ -1,0 +1,24 @@
+#!/bin/bash
+#PBS -V
+#PBS -N trim_fastp_leuconotopicus
+#PBS -l nodes=1:ppn=20,mem=128gb,walltime=500:00:00
+#PBS -q batch
+#PBS -j oe
+#PBS -o /usr/scratch2/userdata2/mtofflemire/projects/leuconotopicus/reseq_WD/01.1_cleaned/trim_fastp_leuconotopicus.log
+
+set -euo pipefail
+source ~/miniconda3/etc/profile.d/conda.sh; conda activate genomics
+
+IN="/usr/scratch2/userdata2/mtofflemire/projects/leuconotopicus/raw_wgs/fastq"
+OUT="/usr/scratch2/userdata2/mtofflemire/projects/leuconotopicus/reseq_WD/01.1_cleaned"
+mkdir -p "$OUT"
+
+shopt -s nullglob
+for R1 in "$IN"/*_R1_*.fastq.gz; do
+  R2="${R1/_R1_/_R2_}"; [[ -f "$R2" ]] || continue
+  base="$(basename "${R1%%_R1_*}")"
+  fastp -i "$R1" -I "$R2" \
+        -o "$OUT/${base}_R1.cleaned.fastq.gz" \
+        -O "$OUT/${base}_R2.cleaned.fastq.gz" \
+        --detect_adapter_for_pe --trim_poly_g --length_required 50 --thread 20
+done

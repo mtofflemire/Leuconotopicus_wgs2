@@ -1,28 +1,24 @@
 #!/bin/bash
 #PBS -V
 #PBS -N align_mem2_only
-#PBS -l nodes=1:ppn=20,mem=64gb,walltime=24:00:00
+#PBS -l nodes=1:ppn=20,mem=128gb,walltime=500:00:00
 #PBS -q batch
 #PBS -j oe
-#PBS -o /usr/scratch2/userdata2/mtofflemire/projects/leuconotopicus/reseq_WD/round_1_preprocessing_wgs/alignments/align_mem2_only.log
+#PBS -o /usr/scratch2/userdata2/mtofflemire/projects/leuconotopicus/reseq_WD/01_bam_files/02_align.log
 
 set -euo pipefail
 cd "/usr/scratch2/userdata2/mtofflemire/projects/leuconotopicus/reseq_WD"
 source ~/miniconda3/etc/profile.d/conda.sh; 
 conda activate genomics
 
-
 REF="/usr/scratch2/userdata2/mtofflemire/projects/leuconotopicus/ref_genome/GCF_014839835.1_bDryPub1.pri_genomic.fna"
 
-INPUT_DIR="/usr/scratch2/userdata2/mtofflemire/projects/leuconotopicus/raw_wgs/fastq"
+INPUT_DIR="/usr/scratch2/userdata2/mtofflemire/projects/leuconotopicus/reseq_WD/01.1_cleaned"
 
-OUTDIR="/usr/scratch2/userdata2/mtofflemire/projects/leuconotopicus/reseq_WD/round_1_preprocessing_wgs/alignments"
+OUTDIR="/usr/scratch2/userdata2/mtofflemire/projects/leuconotopicus/reseq_WD/01_bam_files"
 
 THREADS=20
 mkdir -p "$OUTDIR"
-
-
-
 
 for R1 in "$INPUT_DIR"/*_R1*.fastq.gz; do
   [ -e "$R1" ] || { echo "No R1 files in $INPUT_DIR"; exit 1; }
