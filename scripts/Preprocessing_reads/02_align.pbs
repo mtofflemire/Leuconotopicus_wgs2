@@ -4,7 +4,7 @@
 #PBS -l nodes=1:ppn=20,mem=128gb,walltime=500:00:00
 #PBS -q batch
 #PBS -j oe
-#PBS -o /usr/scratch2/userdata2/mtofflemire/projects/leuconotopicus/reseq_WD/01_bam_files/02_align.log
+#PBS -o /usr/scratch2/userdata2/mtofflemire/projects/leuconotopicus/reseq_WD/logs/02_align.log
 
 set -euo pipefail
 cd "/usr/scratch2/userdata2/mtofflemire/projects/leuconotopicus/reseq_WD"
