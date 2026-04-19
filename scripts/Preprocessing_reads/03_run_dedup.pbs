@@ -1,10 +1,10 @@
 #!/bin/bash
 #PBS -V
-#PBS -N markdup_spark
-#PBS -l nodes=1:ppn=16,mem=64gb,walltime=500:00:00
+#PBS -N markdups_sambamba
+#PBS -l nodes=1:ppn=20,mem=64gb,walltime=12:00:00
 #PBS -q batch
 #PBS -j oe
-#PBS -o /usr/scratch2/userdata2/mtofflemire/projects/leuconotopicus/reseq_WD/01_bam_files/03_markdup_spark.log
+#PBS -o /usr/scratch2/userdata2/mtofflemire/projects/leuconotopicus/reseq_WD/01_bam_files/markdups_sambamba.log
 
 set -euo pipefail
 cd "$PBS_O_WORKDIR"
@@ -13,19 +13,14 @@ source ~/miniconda3/etc/profile.d/conda.sh
 conda activate genomics
 
 IN="/usr/scratch2/userdata2/mtofflemire/projects/leuconotopicus/reseq_WD/01_bam_files"
-THREADS=16
+
+THREADS=20
 
 for BAM in "$IN"/*.sorted.bam; do
-  [ -e "$BAM" ] || exit 1
-
+  [ -e "$BAM" ] || { exit 1; }
   base="$(basename "$BAM" .sorted.bam)"
 
-  gatk --java-options "-Xms50G -Xmx50G" MarkDuplicatesSpark \
-    -I "$BAM" \
-    -O "$IN/${base}.dedup.bam" \
-    --spark-master local[$THREADS]
-
-  samtools index "$IN/${base}.dedup.bam"
-
-  samtools flagstat "$IN/${base}.dedup.bam" > "$IN/${base}.dedup.flagstat.txt"
+  sambamba markdup -t "$THREADS" "$BAM" "$IN/${base}.dedup.bam"
+  sambamba index -t "$THREADS" "$IN/${base}.dedup.bam"
+  samtools flagstat -@ "$THREADS" "$IN/${base}.dedup.bam" > "$IN/${base}.dedup.flagstat.txt"
 done
