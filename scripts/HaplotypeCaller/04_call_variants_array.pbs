@@ -1,46 +1,38 @@
 #!/bin/bash
 #PBS -V
 #PBS -N hc_gvcf_array
-# Use 4 threads per task (array slot)
-# Adjust mem/walltime to your cluster norms
 #PBS -l nodes=1:ppn=4,mem=16gb,walltime=500:00:00
 #PBS -q batch
-# One log per array task:
-#PBS -o /usr/scratch2/userdata2/mtofflemire/projects/picoides_genotyping/out/hc_gvcf_array.$PBS_ARRAYID.log
+#PBS -o /usr/scratch2/userdata2/mtofflemire/projects/leuconotopicus/reseq_WD/02_vcf/hc_gvcf_array.$PBS_ARRAYID.log
 #PBS -j oe
-# (no #PBS -t line here; pass -t from qsub)
 
 set -euo pipefail
+shopt -s nullglob
 
-# Activate env
 cd "$PBS_O_WORKDIR"
 source ~/miniconda3/etc/profile.d/conda.sh
 conda activate genomics
 
-# ---- Paths (absolute; update only here if your layout changes) ----
-REF="/usr/scratch2/userdata2/mtofflemire/references/ncbi_dataset/data/GCF_014839835.1/GCF_014839835.1_bDryPub1.pri_genomic.fna"
-BAM_DIR="/usr/scratch2/userdata2/mtofflemire/projects/picoides_genotyping/data/alignments2"
+REF="/usr/scratch2/userdata2/mtofflemire/projects/leuconotopicus/ref_genome/GCF_014839835.1_bDryPub1.pri_genomic.fna"
+BAM_DIR="/usr/scratch2/userdata2/mtofflemire/projects/leuconotopicus/reseq_WD/01_bam_files"
+OUT_DIR="/usr/scratch2/userdata2/mtofflemire/projects/leuconotopicus/reseq_WD/02_vcf"
 
-# Put gVCFs directly under the project:
-OUT_ROOT="/usr/scratch2/userdata2/mtofflemire/projects/picoides_genotyping/gvcf"
-mkdir -p "$OUT_ROOT"
+mkdir -p "$OUT_DIR"
 
-SAMPLES="/usr/scratch2/userdata2/mtofflemire/projects/picoides_genotyping/SNP_calling/samples.txt"
+BAMS=("$BAM_DIR"/*.dedup.bam)
+[ ${#BAMS[@]} -gt 0 ] || { echo "No .dedup.bam files found in $BAM_DIR"; exit 1; }
 
-# ---- Select the sample for this array index ----
-SAMPLE="$(sed -n "${PBS_ARRAYID}p" "$SAMPLES" || true)"
-[ -n "${SAMPLE:-}" ] || { echo "Empty SAMPLE for PBS_ARRAYID=$PBS_ARRAYID; exiting."; exit 0; }
+IDX=$((PBS_ARRAYID - 1))
+[ "$IDX" -ge 0 ] && [ "$IDX" -lt "${#BAMS[@]}" ] || { echo "PBS_ARRAYID=$PBS_ARRAYID is out of range"; exit 1; }
 
-# ---- Threads: use the cores requested via ppn ----
+BAM="${BAMS[$IDX]}"
+SAMPLE="$(basename "$BAM" .dedup.bam)"
 THREADS="${PBS_NUM_PPN:-4}"
 
-# ---- Run GATK HaplotypeCaller in GVCF mode ----
 gatk --java-options "-Xmx8g" HaplotypeCaller \
   -R "$REF" \
-  -I "$BAM_DIR/${SAMPLE}.dedup.bam" \
-  -O "$OUT_ROOT/${SAMPLE}.g.vcf.gz" \
+  -I "$BAM" \
+  -O "$OUT_DIR/${SAMPLE}.g.vcf.gz" \
   -ERC GVCF \
   --native-pair-hmm-threads "$THREADS"
 
-# (Optional) Ensure index exists (GATK usually writes it automatically for .gz)
-gatk IndexFeatureFile -I "$OUT_ROOT/${SAMPLE}.g.vcf.gz"

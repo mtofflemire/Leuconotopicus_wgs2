@@ -1,7 +1,7 @@
 #!/bin/bash
 #PBS -V
 #PBS -N markdup_spark
-#PBS -l nodes=1:ppn=16,mem=64gb,walltime=12:00:00
+#PBS -l nodes=1:ppn=16,mem=64gb,walltime=500:00:00
 #PBS -q batch
 #PBS -j oe
 #PBS -o /usr/scratch2/userdata2/mtofflemire/projects/leuconotopicus/reseq_WD/01_bam_files/03_markdup_spark.log
@@ -9,47 +9,23 @@
 set -euo pipefail
 cd "$PBS_O_WORKDIR"
 
-# Activate environment
 source ~/miniconda3/etc/profile.d/conda.sh
 conda activate genomics
 
-# Input directory
 IN="/usr/scratch2/userdata2/mtofflemire/projects/leuconotopicus/reseq_WD/01_bam_files"
-
-# Threads (match ppn)
 THREADS=16
 
-# Loop through BAMs
 for BAM in "$IN"/*.sorted.bam; do
-  [ -e "$BAM" ] || { echo "No *.sorted.bam files found in $IN"; exit 1; }
+  [ -e "$BAM" ] || exit 1
 
   base="$(basename "$BAM" .sorted.bam)"
 
-  # Scratch directory
-  SCRATCH="${TMPDIR:-/tmp}/$base"
-  mkdir -p "$SCRATCH"
+  gatk --java-options "-Xms50G -Xmx50G" MarkDuplicatesSpark \
+    -I "$BAM" \
+    -O "$IN/${base}.dedup.bam" \
+    --spark-master local[$THREADS]
 
-  # Copy BAM to scratch
-  cp "$BAM" "$SCRATCH/"
-  cd "$SCRATCH"
+  samtools index "$IN/${base}.dedup.bam"
 
-  # Run MarkDuplicatesSpark
-  gatk --java-options "-Djava.io.tmpdir=$SCRATCH -Xms50G -Xmx50G" MarkDuplicatesSpark \
-    -I "$SCRATCH/${base}.sorted.bam" \
-    -O "$SCRATCH/${base}.dedup.bam" \
-    --spark-master local[$THREADS] \
-    --conf "spark.local.dir=$SCRATCH"
-
-  # Copy back
-  cp "$SCRATCH/${base}.dedup.bam" "$IN/"
-  cp "$SCRATCH/${base}.dedup.bai" "$IN/"
-
-  # Flagstat
   samtools flagstat "$IN/${base}.dedup.bam" > "$IN/${base}.dedup.flagstat.txt"
-
-  # Clean up
-  rm -rf "$SCRATCH"
-
-  # Return to working directory for next loop
-  cd "$PBS_O_WORKDIR"
 done
