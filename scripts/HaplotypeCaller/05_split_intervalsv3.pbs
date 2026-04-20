@@ -1,36 +1,35 @@
 #!/bin/bash
 #PBS -V
-#PBS -N prep_shards_out2
+#PBS -N prep_shards
 #PBS -l nodes=1:ppn=1,mem=4gb,walltime=01:00:00
 #PBS -q batch
-#PBS -o /usr/scratch2/userdata2/mtofflemire/projects/picoides_genotyping/out/prep_shards_out2.log
+#PBS -o /usr/scratch2/userdata2/mtofflemire/projects/leuconotopicus/reseq_WD/logs/prep_shards.log
 #PBS -j oe
+
 set -euo pipefail
 cd "$PBS_O_WORKDIR"
 
-# env
 source ~/miniconda3/etc/profile.d/conda.sh
 conda activate genomics
 
-# paths
-PRJ=/usr/scratch2/userdata2/mtofflemire/projects/picoides_genotyping
-REF=/usr/scratch2/userdata2/mtofflemire/references/ncbi_dataset/data/GCF_014839835.1/GCF_014839835.1_bDryPub1.pri_genomic.fna
-OUT2=$PRJ/out2
-SHARDS_DIR=$OUT2/shards
+PRJ=/usr/scratch2/userdata2/mtofflemire/projects/leuconotopicus/reseq_WD
+REF=/usr/scratch2/userdata2/mtofflemire/projects/leuconotopicus/ref_genome/GCF_014839835.1_bDryPub1.pri_genomic.fna
+OUT_DIR=$PRJ/02_vcf
+SHARDS_DIR=$OUT_DIR/shards
 SPLITS=48
 
-mkdir -p "$SHARDS_DIR" "$OUT2/tmp"
+mkdir -p "$SHARDS_DIR" "$OUT_DIR/tmp"
 rm -f "$SHARDS_DIR"/* 2>/dev/null || true
 
-# ensure reference is indexed/dict’d
 [ -f "${REF}.fai" ] || samtools faidx "$REF"
 DICT="${REF%.*}.dict"
 [ -f "$DICT" ] || gatk CreateSequenceDictionary -R "$REF" -O "$DICT"
 
-# split
-gatk SplitIntervals -R "$REF" --scatter-count "$SPLITS" -O "$SHARDS_DIR"
+gatk SplitIntervals \
+  -R "$REF" \
+  --scatter-count "$SPLITS" \
+  -O "$SHARDS_DIR"
 
-# manifest for array job
 find "$SHARDS_DIR" -type f -name '*.interval_list' | sort -V > "$SHARDS_DIR/intervals.list"
 wc -l "$SHARDS_DIR/intervals.list" || true
 echo "Shards ready in $SHARDS_DIR"

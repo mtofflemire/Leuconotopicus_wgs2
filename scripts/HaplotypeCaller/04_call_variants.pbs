@@ -1,9 +1,9 @@
 #!/bin/bash
 #PBS -V
 #PBS -N hc_gvcf_array
-#PBS -l nodes=1:ppn=4,mem=16gb,walltime=500:00:00
+#PBS -l nodes=1:ppn=5,mem=16gb,walltime=500:00:00
 #PBS -q batch
-#PBS -o /usr/scratch2/userdata2/mtofflemire/projects/leuconotopicus/reseq_WD/02_vcf/hc_gvcf_array.$PBS_ARRAYID.log
+#PBS -o /usr/scratch2/userdata2/mtofflemire/projects/leuconotopicus/reseq_WD/logs/04_call_variants.$PBS_ARRAYID.log
 #PBS -j oe
 
 set -euo pipefail
