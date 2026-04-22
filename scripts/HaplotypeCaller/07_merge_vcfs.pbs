@@ -4,27 +4,35 @@
 #PBS -N gather_raw_picoides
 #PBS -l nodes=1:ppn=4,mem=16gb,walltime=500:00:00
 #PBS -q batch
-#PBS -o /usr/scratch2/userdata2/mtofflemire/projects/picoides_genotyping/out/gather_raw_picoides.log
+#PBS -o /usr/scratch2/userdata2/mtofflemire/projects/leuconotopicus/reseq_WD/logs/gather_raw_picoides.log
 #PBS -j oe
 
 set -euo pipefail
 cd "$PBS_O_WORKDIR"
 
-# env
 source ~/miniconda3/etc/profile.d/conda.sh
 conda activate genomics
 
-OUT2=/usr/scratch2/userdata2/mtofflemire/projects/picoides_genotyping/out2
+PRJ=/usr/scratch2/userdata2/mtofflemire/projects/leuconotopicus
+REF=$PRJ/ref_genome/GCF_014839835.1_bDryPub1.pri_genomic.fna
+DICT=${REF%.fna}.dict
 
-cd "$OUT2"
+IN_DIR=$PRJ/reseq_WD/03_vcf
+OUT_DIR=$PRJ/reseq_WD/04_vcf
 
-# Gather shards -> single cohort VCF
+mkdir -p "$OUT_DIR"
+cd "$IN_DIR"
+
+# Gather shards -> single cohort all-sites VCF
 gatk GatherVcfs \
-  $(printf -- '-I cohort.raw.%03d.vcf.gz ' $(seq 0 47)) \
-  -O picoides.raw.merged.vcf.gz
+  $(printf -- '-I cohort.allsites.%03d.vcf.gz ' $(seq 0 47)) \
+  -O "$OUT_DIR/leuconotopicus.allsites.merged.vcf.gz"
 
-# Index the merged VCF
-gatk IndexFeatureFile -I picoides.raw.merged.vcf.gz
+# Sort merged VCF
+gatk SortVcf \
+  -I "$OUT_DIR/leuconotopicus.allsites.merged.vcf.gz" \
+  -O "$OUT_DIR/leuconotopicus.allsites.merged.sorted.vcf.gz" \
+  --SEQUENCE_DICTIONARY "$DICT"
 
-echo "Done: $OUT2/picoides.raw.merged.vcf.gz"
-
+# Index the sorted VCF
+gatk IndexFeatureFile -I "$OUT_DIR/leuconotopicus.allsites.merged.sorted.vcf.gz"
