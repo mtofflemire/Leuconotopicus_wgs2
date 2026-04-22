@@ -3,9 +3,10 @@
 #PBS -N gdb_array_out2
 #PBS -l nodes=1:ppn=8,mem=64gb,walltime=500:00:00
 #PBS -q batch
-#PBS -o /usr/scratch2/userdata2/mtofflemire/projects/picoides_genotyping/out/gdb_array_out2.$PBS_ARRAYID.log
+#PBS -o /usr/scratch2/userdata2/mtofflemire/projects/leuconotopicus/reseq_WD/logs/gdb_array.$PBS_ARRAYID.log
 #PBS -j oe
-#PBS -t 0-47%12
+#PBS -t 0-47%4
+
 set -euo pipefail
 ulimit -n 4096 || true
 cd "$PBS_O_WORKDIR"
@@ -13,16 +14,22 @@ cd "$PBS_O_WORKDIR"
 source ~/miniconda3/etc/profile.d/conda.sh
 conda activate genomics
 
-PRJ=/usr/scratch2/userdata2/mtofflemire/projects/picoides_genotyping
-REF=/usr/scratch2/userdata2/mtofflemire/references/ncbi_dataset/data/GCF_014839835.1/GCF_014839835.1_bDryPub1.pri_genomic.fna
-GVCF_DIR=$PRJ/gvcf
-OUT2=$PRJ/out2
-SHARDS_DIR=$OUT2/shards
-SAMPLE_MAP=$OUT2/sample_map.txt
-TMP=$OUT2/tmp/gatk
-mkdir -p "$TMP"
+PRJ=/usr/scratch2/userdata2/mtofflemire/projects/leuconotopicus
+REF=$PRJ/ref_genome/GCF_014839835.1_bDryPub1.pri_genomic.fna
 
-# sample map (create once if missing)
+IN_DIR=$PRJ/reseq_WD/02_vcf
+OUT_DIR=$PRJ/reseq_WD/03_vcf
+
+GVCF_DIR=$IN_DIR
+SHARDS_DIR=$IN_DIR/shards
+SAMPLE_MAP=$IN_DIR/sample_map.txt
+TMP=$OUT_DIR/tmp/gatk
+
+mkdir -p "$OUT_DIR" "$TMP"
+
+compgen -G "$GVCF_DIR/*.g.vcf.gz" > /dev/null || { echo "No .g.vcf.gz files found in $GVCF_DIR"; exit 1; }
+
+# create sample map if missing
 [ -s "$SAMPLE_MAP" ] || ls -1 "$GVCF_DIR"/*.g.vcf.gz | \
   awk -F/ '{f=$NF; sub(/\.g\.vcf\.gz$/,"",f); print f"\t"$0}' > "$SAMPLE_MAP"
 
@@ -31,10 +38,10 @@ LIST=$(sed -n "$((PBS_ARRAYID+1))p" "$SHARDS_DIR/intervals.list")
 [ -s "$LIST" ] || { echo "No interval_list for index $PBS_ARRAYID"; exit 1; }
 
 ID=$(printf "%03d" "${PBS_ARRAYID}")
-DB=$OUT2/genomicsdb.$ID
-VCF=$OUT2/cohort.raw.$ID.vcf.gz
+DB=$OUT_DIR/genomicsdb.$ID
+VCF=$OUT_DIR/cohort.allsites.$ID.vcf.gz
 
-# import (overwrite avoids stale partials)
+# import
 gatk --java-options "-Xmx48g -Xms48g -XX:+UseParallelGC" GenomicsDBImport \
   --sample-name-map "$SAMPLE_MAP" \
   --genomicsdb-workspace-path "$DB" \
@@ -43,7 +50,11 @@ gatk --java-options "-Xmx48g -Xms48g -XX:+UseParallelGC" GenomicsDBImport \
   --reader-threads 8 \
   -L "$LIST"
 
-# genotype
+# genotype all sites for this shard
 gatk --java-options "-Xmx48g -Xms48g -XX:+UseParallelGC" GenotypeGVCFs \
-  -R "$REF" -V "gendb://$DB" -O "$VCF"
+  -R "$REF" \
+  -V "gendb://$DB" \
+  -L "$LIST" \
+  -all-sites \
+  -O "$VCF"
 
