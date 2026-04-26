@@ -1,0 +1,41 @@
+#!/bin/bash
+#PBS -V
+#PBS -N split_raw_sites
+#PBS -l nodes=1:ppn=20,mem=64gb,walltime=100:00:00
+#PBS -q batch
+#PBS -o /usr/scratch2/userdata2/mtofflemire/projects/leuconotopicus/reseq_WD/logs/split_raw_sites.log
+#PBS -j oe
+
+set -euo pipefail
+cd "$PBS_O_WORKDIR"
+
+source ~/miniconda3/etc/profile.d/conda.sh
+conda activate genomics
+
+PRJ=/usr/scratch2/userdata2/mtofflemire/projects/leuconotopicus
+WORKDIR=$PRJ/reseq_WD/04_vcf
+THREADS=20
+
+cd "$WORKDIR"
+
+VCF=leuconotopicus.allsites.merged.sorted.vcf.gz
+
+[ -s "$VCF" ] || { echo "Input VCF not found: $VCF"; exit 1; }
+[ -s "$VCF.tbi" ] || tabix -p vcf "$VCF"
+
+# raw variant sites only
+bcftools view --threads "$THREADS" \
+  -e 'ALT="."' \
+  -Oz -o leuconotopicus.raw.variants.vcf.gz \
+  "$VCF"
+
+tabix -p vcf leuconotopicus.raw.variants.vcf.gz
+
+# raw invariant sites only
+bcftools view --threads "$THREADS" \
+  -i 'ALT="."' \
+  -Oz -o leuconotopicus.raw.invariant.vcf.gz \
+  "$VCF"
+
+tabix -p vcf leuconotopicus.raw.invariant.vcf.gz
+

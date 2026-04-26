@@ -1,0 +1,60 @@
+#!/bin/bash
+#PBS -V
+#PBS -N raw_site_qc
+#PBS -l nodes=1:ppn=20,mem=128gb,walltime=100:00:00
+#PBS -q batch
+#PBS -o /usr/scratch2/userdata2/mtofflemire/projects/leuconotopicus/reseq_WD/logs/raw_site_qc.log
+#PBS -j oe
+
+set -euo pipefail
+cd "$PBS_O_WORKDIR"
+
+source ~/miniconda3/etc/profile.d/conda.sh
+conda activate genomics
+
+PRJ=/usr/scratch2/userdata2/mtofflemire/projects/leuconotopicus
+WORKDIR=$PRJ/reseq_WD/04_vcf
+cd "$WORKDIR"
+
+INV_VCF=leuconotopicus.raw.invariant.vcf.gz
+VAR_VCF=leuconotopicus.raw.variants.vcf.gz
+
+INV_PREFIX=leuconotopicus.raw.invariant
+VAR_PREFIX=leuconotopicus.raw.variants
+
+[ -s "$INV_VCF" ] || { echo "Missing $INV_VCF"; exit 1; }
+[ -s "$VAR_VCF" ] || { echo "Missing $VAR_VCF"; exit 1; }
+
+[ -s "$INV_VCF.tbi" ] || tabix -p vcf "$INV_VCF"
+[ -s "$VAR_VCF.tbi" ] || tabix -p vcf "$VAR_VCF"
+
+bcftools stats "$INV_VCF" > "${INV_PREFIX}.bcftools.stats.txt"
+bcftools query -l "$INV_VCF" > "${INV_PREFIX}.samples.txt"
+vcftools --gzvcf "$INV_VCF" --missing-indv --out "$INV_PREFIX"
+vcftools --gzvcf "$INV_VCF" --missing-site --out "$INV_PREFIX"
+vcftools --gzvcf "$INV_VCF" --site-mean-depth --out "$INV_PREFIX"
+vcftools --gzvcf "$INV_VCF" --depth --out "$INV_PREFIX"
+
+bcftools stats "$VAR_VCF" > "${VAR_PREFIX}.bcftools.stats.txt"
+bcftools query -l "$VAR_VCF" > "${VAR_PREFIX}.samples.txt"
+vcftools --gzvcf "$VAR_VCF" --missing-indv --out "$VAR_PREFIX"
+vcftools --gzvcf "$VAR_VCF" --missing-site --out "$VAR_PREFIX"
+vcftools --gzvcf "$VAR_VCF" --site-mean-depth --out "$VAR_PREFIX"
+vcftools --gzvcf "$VAR_VCF" --depth --out "$VAR_PREFIX"
+vcftools --gzvcf "$VAR_VCF" --freq2 --max-alleles 2 --out "$VAR_PREFIX"
+vcftools --gzvcf "$VAR_VCF" --site-quality --out "$VAR_PREFIX"
+vcftools --gzvcf "$VAR_VCF" --het --out "$VAR_PREFIX"
+
+gatk VariantsToTable \
+  -V "$VAR_VCF" \
+  -F CHROM \
+  -F POS \
+  -F QUAL \
+  -F QD \
+  -F DP \
+  -F MQ \
+  -F MQRankSum \
+  -F FS \
+  -F ReadPosRankSum \
+  -F SOR \
+  -O "${VAR_PREFIX}.annotations.table"

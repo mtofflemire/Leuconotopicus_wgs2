@@ -2,7 +2,7 @@
 #!/bin/bash
 #PBS -V
 #PBS -N gather_raw_picoides
-#PBS -l nodes=1:ppn=4,mem=16gb,walltime=500:00:00
+#PBS -l nodes=1:ppn=4,mem=64gb,walltime=500:00:00
 #PBS -q batch
 #PBS -o /usr/scratch2/userdata2/mtofflemire/projects/leuconotopicus/reseq_WD/logs/gather_raw_picoides.log
 #PBS -j oe
