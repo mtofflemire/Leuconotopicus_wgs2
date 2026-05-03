@@ -26,8 +26,6 @@ VAR_VCF=leuconotopicus.raw.variants.PASS.DPfilterNoCall.vcf.gz
 MAX_MISSING=0.8
 MIN_MEAN_DP=4
 MAX_MEAN_DP=20
-MAF=0.01
-HWE=1e-6
 
 echo "[$(date)] Counting raw invariant records"
 RAW_INV_COUNT=$(bcftools view -H "$INV_VCF" | wc -l)
@@ -52,14 +50,12 @@ echo "[$(date)] Counting PASS DP-masked variant records before vcftools filterin
 RAW_VAR_COUNT=$(bcftools view -H "$VAR_VCF" | wc -l)
 echo "[$(date)] Raw variant count before vcftools: $RAW_VAR_COUNT"
 
-echo "[$(date)] Filtering variant sites with vcftools depth/missingness/MAF/HWE"
+echo "[$(date)] Filtering variant sites with vcftools depth/missingness only"
 vcftools --gzvcf "$VAR_VCF" \
   --remove-indels \
   --max-missing "$MAX_MISSING" \
   --min-meanDP "$MIN_MEAN_DP" \
   --max-meanDP "$MAX_MEAN_DP" \
-  --maf "$MAF" \
-  --hwe "$HWE" \
   --max-alleles 2 \
   --recode --stdout | bgzip -@ "$THREADS" -c > leuconotopicus.variants.filtered.vcf.gz
 
@@ -75,11 +71,11 @@ bcftools concat --threads "$THREADS" \
   --allow-overlaps \
   leuconotopicus.variants.filtered.vcf.gz \
   leuconotopicus.invariant.filtered.vcf.gz \
-  -O z -o leuconotopicus.allsites.filteredQC.vcf.gz
+  -O z -o leuconotopicus.allsites.final.vcf.gz
 
-tabix -p vcf leuconotopicus.allsites.filteredQC.vcf.gz
+tabix -p vcf leuconotopicus.allsites.final.vcf.gz
 
-ALLSITES_COUNT=$(bcftools view -H leuconotopicus.allsites.filteredQC.vcf.gz | wc -l)
+ALLSITES_COUNT=$(bcftools view -H leuconotopicus.allsites.final.vcf.gz | wc -l)
 echo "[$(date)] Final merged all-sites count: $ALLSITES_COUNT"
 
 echo "[$(date)] Writing filter summary table"
@@ -95,4 +91,3 @@ echo "[$(date)] Writing filter summary table"
 } > leuconotopicus.vcftools_filter_counts.tsv
 
 echo "[$(date)] Finished vcftools_filter_merge"
-

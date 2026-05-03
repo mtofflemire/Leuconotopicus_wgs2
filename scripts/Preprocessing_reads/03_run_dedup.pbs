@@ -1,26 +1,38 @@
 #!/bin/bash
 #PBS -V
-#PBS -N markdups_sambamba
-#PBS -l nodes=1:ppn=20,mem=64gb,walltime=12:00:00
-#PBS -q batch
+#PBS -l nodes=1:ppn=10,mem=128gb
+#PBS -N 02_markduplicates
 #PBS -j oe
-#PBS -o /usr/scratch2/userdata2/mtofflemire/projects/leuconotopicus/reseq_WD/logs/03_dedup_sambamba.log
+#PBS -q batch
+#PBS -l walltime=500:00:00
+#PBS -o /usr/scratch2/userdata2/mtofflemire/projects/leuconotopicus/reseq_WD/logs/02_markduplicates.log
 
 set -euo pipefail
-cd "$PBS_O_WORKDIR"
 
 source ~/miniconda3/etc/profile.d/conda.sh
 conda activate genomics
 
-IN="/usr/scratch2/userdata2/mtofflemire/projects/leuconotopicus/reseq_WD/01_bam_files"
+cd $PBS_O_WORKDIR
 
-THREADS=20
+BAM_DIR="/usr/scratch2/userdata2/mtofflemire/projects/leuconotopicus/reseq_WD/01_bam_files"
+FLAGSTAT_DIR="/usr/scratch2/userdata2/mtofflemire/projects/leuconotopicus/reseq_WD/01_bam_files"
 
-for BAM in "$IN"/*.sorted.bam; do
-  [ -e "$BAM" ] || { exit 1; }
-  base="$(basename "$BAM" .sorted.bam)"
+for BAM in ${BAM_DIR}/*.sorted.bam; do
 
-  sambamba markdup -t "$THREADS" "$BAM" "$IN/${base}.dedup.bam"
-  sambamba index -t "$THREADS" "$IN/${base}.dedup.bam"
-  samtools flagstat -@ "$THREADS" "$IN/${base}.dedup.bam" > "$IN/${base}.dedup.flagstat.txt"
+    SAMPLE_NAME=$(basename "$BAM" .sorted.bam)
+
+    gatk --java-options "-Xms4g -Xmx16g" MarkDuplicates \
+        -I "$BAM" \
+        -O "${BAM_DIR}/${SAMPLE_NAME}.dedup.bam" \
+        -M "${FLAGSTAT_DIR}/${SAMPLE_NAME}.dup_metrics.txt" \
+        --CREATE_INDEX true \
+        --VALIDATION_STRINGENCY SILENT
+
+    #samtools index "${BAM_DIR}/${SAMPLE_NAME}.dedup.bam"
+    samtools flagstat "${BAM_DIR}/${SAMPLE_NAME}.dedup.bam" > "${FLAGSTAT_DIR}/${SAMPLE_NAME}_dedup.flagstat.txt"
+
+    echo "========== MarkDuplicates finished for $SAMPLE_NAME at $(date) =========="
+
 done
+
+#note: the flagstats made here are the ones usually reported in papers
