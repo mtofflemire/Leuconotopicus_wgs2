@@ -1,0 +1,35 @@
+#!/bin/bash
+#PBS -V
+#PBS -N prep_shards
+#PBS -l nodes=1:ppn=1,mem=4gb,walltime=01:00:00
+#PBS -q batch
+#PBS -o /usr/scratch2/userdata2/mtofflemire/projects/picoides_genotyping/out/prep_shards.log
+#PBS -j oe
+
+set -euo pipefail
+cd "$PBS_O_WORKDIR"
+
+# ======== Load environment ========
+source ~/miniconda3/etc/profile.d/conda.sh
+conda activate genomics
+
+# ======== Paths & parameters ========
+REF=/usr/scratch2/userdata2/mtofflemire/references/ncbi_dataset/data/GCF_014839835.1/GCF_014839835.1_bDryPub1.pri_genomic.fna
+SHARDS_DIR=/usr/scratch2/userdata2/mtofflemire/projects/picoides_genotyping/SNP_calling/joint_gatk4_gdb/shards2
+SPLITS=48
+
+mkdir -p "$SHARDS_DIR"
+
+# ======== Ensure reference indices exist ========
+[ -f "${REF}.fai" ] || samtools faidx "$REF"
+DICT="${REF%.*}.dict"
+[ -f "$DICT" ] || gatk CreateSequenceDictionary -R "$REF" -O "$DICT"
+
+# ======== Split intervals (one-time) ========
+# Will re-create all shards from scratch
+gatk SplitIntervals \
+    -R "$REF" \
+    --scatter-count "$SPLITS" \
+    -O "$SHARDS_DIR"
+
+echo "Finished creating $SPLITS shards in $SHARDS_DIR"

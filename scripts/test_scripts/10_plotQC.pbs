@@ -1,0 +1,31 @@
+#!/bin/bash
+#PBS -V
+#PBS -N plot_site_qc
+#PBS -l nodes=ram2tb:ppn=4,mem=512gb,walltime=24:00:00
+#PBS -q batch
+#PBS -o /usr/scratch2/userdata2/mtofflemire/projects/leuconotopicus/reseq_WD/logs/plot_site_qc.log
+#PBS -j oe
+
+set -euo pipefail
+cd "$PBS_O_WORKDIR"
+
+echo "[$(date)] Starting plot_site_qc job"
+echo "[$(date)] Working directory: $PBS_O_WORKDIR"
+
+source ~/miniconda3/etc/profile.d/conda.sh
+echo "[$(date)] Activating rplot environment"
+conda activate /home/mtofflemire/miniconda3/envs/rplot
+
+echo "[$(date)] Rscript path: $(which Rscript)"
+echo "[$(date)] R version:"
+Rscript --version
+
+RSCRIPT=/usr/scratch2/userdata2/mtofflemire/projects/leuconotopicus/scripts/HaplotypeCaller/plot_QC.R
+echo "[$(date)] Using R script: $RSCRIPT"
+[ -s "$RSCRIPT" ] || { echo "[$(date)] Missing $RSCRIPT"; exit 1; }
+
+echo "[$(date)] Running plot_QC.R"
+Rscript "$RSCRIPT"
+
+echo "[$(date)] plot_site_qc finished successfully"
+

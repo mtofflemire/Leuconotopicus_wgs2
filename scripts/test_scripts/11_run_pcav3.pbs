@@ -1,0 +1,36 @@
+# 14_pca_vcf_to_bed_then_pca.pbs
+#!/bin/bash
+#PBS -V
+#PBS -N pca_bed
+#PBS -l nodes=1:ppn=8,mem=32gb,walltime=02:00:00
+#PBS -q batch
+#PBS -o /usr/scratch2/userdata2/mtofflemire/projects/picoides_genotyping/out/pca_bed.log
+#PBS -j oe
+
+set -euo pipefail
+cd "$PBS_O_WORKDIR"
+
+# activate plink env
+source ~/miniconda3/etc/profile.d/conda.sh
+conda activate plink19
+
+OUT2=/usr/scratch2/userdata2/mtofflemire/projects/picoides_genotyping/out2
+VCF=$OUT2/picoides.snps.pruned.vcf.gz
+BED=$OUT2/picoides
+PCA=$OUT2/picoides.pca
+
+plink \
+  --vcf "$VCF" \
+  --double-id \
+  --allow-extra-chr \
+  --set-missing-var-ids @:#:\$1_\$2 \
+  --make-bed \
+  --threads 8 \
+  --out "$BED"
+
+plink \
+  --bfile "$BED" \
+  --pca 20 header tabs \
+  --threads 8 \
+  --out "$PCA"
+

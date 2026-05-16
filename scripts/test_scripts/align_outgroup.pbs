@@ -1,0 +1,34 @@
+#!/bin/bash
+#PBS -V
+#PBS -l nodes=1:ppn=16
+#PBS -l mem=128gb
+#PBS -l walltime=48:00:00
+#PBS -N minimap_outgroup
+#PBS -j oe
+#PBS -M mtofflemire@sdsu.edu
+#PBS -o /usr/scratch2/userdata2/mtofflemire/projects/chamaea/out/minimap_outgroup.log
+#PBS -q batch
+
+# Change to the working directory
+cd $PBS_O_WORKDIR
+
+# Set output directory
+OUTDIR="/usr/scratch2/userdata2/mtofflemire/projects/chamaea/out"
+
+# Ensure output directory exists
+mkdir -p $OUTDIR
+
+# Activate Conda environment
+source ~/miniconda3/etc/profile.d/conda.sh
+conda activate outgroup_align
+
+# Run minimap2 and save alignment output in the output directory
+minimap2 -ax asm5 -t 16 \
+    /home/mtofflemire/references/GCA_029207755.1/GCA_029207755.1_bChaFas1.0.hap1_genomic.fna \
+    /home/mtofflemire/references/Fulvetta_ruficapilla/ncbi_dataset/data/GCA_042477295.1/GCA_042477295.1_Fruf_v1_genomic.fna | \
+samtools sort -o $OUTDIR/outgroup_aligned.bam
+
+# Index the BAM file and save in output directory
+samtools index $OUTDIR/outgroup_aligned.bam
+
+echo "✅ Minimap2 alignment complete! All output files are in: $OUTDIR"

@@ -1,0 +1,29 @@
+#!/bin/bash
+#PBS -V
+#PBS -N prep_shards
+#PBS -l nodes=ram2tb:ppn=4,mem=128gb,walltime=500:00:00
+#PBS -q batch
+#PBS -o /dev/null
+#PBS -j oe
+
+set -euo pipefail
+LOG=/usr/scratch2/userdata2/mtofflemire/projects/leuconotopicus/reseq_WD/04_vcf/prep_shards.log
+mkdir -p "$(dirname "$LOG")"
+exec > "$LOG" 2>&1
+
+cd "${PBS_O_WORKDIR:-$PWD}"
+source ~/miniconda3/etc/profile.d/conda.sh
+conda activate genomics
+
+REF=/usr/scratch2/userdata2/mtofflemire/projects/leuconotopicus/ref_genome/GCF_014839835.1_bDryPub1.pri_genomic.fna
+OUTDIR=/usr/scratch2/userdata2/mtofflemire/projects/leuconotopicus/reseq_WD/04_vcf/shards
+SPLITS=48
+
+mkdir -p "$OUTDIR"
+rm -f "$OUTDIR"/*.interval_list "$OUTDIR"/intervals.list 2>/dev/null || true
+[ -f "${REF}.fai" ] || samtools faidx "$REF"
+DICT="${REF%.*}.dict"; [ -f "$DICT" ] || gatk CreateSequenceDictionary -R "$REF" -O "$DICT"
+gatk SplitIntervals -R "$REF" --scatter-count "$SPLITS" -O "$OUTDIR"
+find "$OUTDIR" -type f -name '*.interval_list' | sort -V > "$OUTDIR/intervals.list"
+wc -l "$OUTDIR/intervals.list"
+echo "Shards ready in $OUTDIR"

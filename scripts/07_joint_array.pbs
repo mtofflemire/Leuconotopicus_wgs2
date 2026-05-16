@@ -1,0 +1,65 @@
+#!/bin/bash
+#PBS -V
+#PBS -N gdb_array_out2
+#PBS -l nodes=node19:ppn=8,mem=64gb,walltime=500:00:00
+#PBS -q batch
+#PBS -o /dev/null
+#PBS -j oe
+#PBS -t 0-47%4
+
+set -euo pipefail
+LOG=/usr/scratch2/userdata2/mtofflemire/projects/leuconotopicus/reseq_WD/04_vcf/gdb_array.${PBS_ARRAYID}.log
+mkdir -p "$(dirname "$LOG")"
+exec > "$LOG" 2>&1
+
+ulimit -n 4096 || true
+cd "${PBS_O_WORKDIR:-$PWD}"
+
+source ~/miniconda3/etc/profile.d/conda.sh
+conda activate genomics
+
+PRJ=/usr/scratch2/userdata2/mtofflemire/projects/leuconotopicus
+REF=$PRJ/ref_genome/GCF_014839835.1_bDryPub1.pri_genomic.fna
+IN_DIR=$PRJ/reseq_WD/03_vcf
+OUT_DIR=$PRJ/reseq_WD/04_vcf
+GVCF_DIR=$IN_DIR
+SHARDS_DIR=$OUT_DIR/shards
+SAMPLE_MAP=$OUT_DIR/sample_map.txt
+TMP=$OUT_DIR/tmp/gatk
+
+mkdir -p "$OUT_DIR" "$TMP"
+compgen -G "$GVCF_DIR/*.g.vcf.gz" > /dev/null || { echo "No .g.vcf.gz files found in $GVCF_DIR"; exit 1; }
+
+[ -s "$SAMPLE_MAP" ] || ls -1 "$GVCF_DIR"/*.g.vcf.gz | \
+  awk -F/ '{f=$NF; sub(/\.g\.vcf\.gz$/,"",f); print f"\t"$0}' > "$SAMPLE_MAP"
+
+LIST=$(sed -n "$((PBS_ARRAYID+1))p" "$SHARDS_DIR/intervals.list")
+[ -s "$LIST" ] || { echo "No interval_list for index $PBS_ARRAYID"; exit 1; }
+
+ID=$(printf "%03d" "${PBS_ARRAYID}")
+DB=$OUT_DIR/genomicsdb.$ID
+VCF=$OUT_DIR/cohort.$ID.vcf.gz
+
+echo "Starting shard $ID at $(date) on $(hostname)"
+
+gatk --java-options "-Xmx48g -Xms48g -XX:+UseParallelGC" GenomicsDBImport \
+  --sample-name-map "$SAMPLE_MAP" \
+  --genomicsdb-workspace-path "$DB" \
+  --overwrite-existing-genomicsdb-workspace \
+  --tmp-dir "$TMP" \
+  --reader-threads 8 \
+  -L "$LIST"
+
+gatk --java-options "-Xmx48g -Xms48g -XX:+UseParallelGC" GenotypeGVCFs \
+  -R "$REF" \
+  -V "gendb://$DB" \
+  -L "$LIST" \
+  --annotation QualByDepth \
+  --annotation FisherStrand \
+  --annotation StrandOddsRatio \
+  --annotation RMSMappingQuality \
+  --annotation MappingQualityRankSumTest \
+  --annotation ReadPosRankSumTest \
+  -O "$VCF"
+
+echo "Finished shard $ID at $(date)"

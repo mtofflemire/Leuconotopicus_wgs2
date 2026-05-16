@@ -1,0 +1,46 @@
+#!/bin/bash
+#PBS -V
+#PBS -N hc_gvcf_array
+#PBS -l nodes=ram2tb:ppn=4,mem=32gb,walltime=500:00:00
+#PBS -q batch
+#PBS -t 1-48%12
+#PBS -o /usr/scratch2/userdata2/mtofflemire/projects/leuconotopicus/reseq_WD/03_vcf/hc_gvcf_array.$PBS_ARRAYID.log
+#PBS -j oe
+
+set -euo pipefail
+
+cd "$PBS_O_WORKDIR"
+source ~/miniconda3/etc/profile.d/conda.sh
+conda activate genomics
+
+REF=/usr/scratch2/userdata2/mtofflemire/projects/leuconotopicus/ref_genome/GCF_014839835.1_bDryPub1.pri_genomic.fna
+BAM_DIR=/usr/scratch2/userdata2/mtofflemire/projects/leuconotopicus/reseq_WD/02_bam_files
+OUT_DIR=/usr/scratch2/userdata2/mtofflemire/projects/leuconotopicus/reseq_WD/03_vcf
+SAMPLES="$BAM_DIR/samples.txt"
+
+mkdir -p "$OUT_DIR"
+
+find "$BAM_DIR" -maxdepth 1 -name "*.dedup.bam" -exec basename {} .dedup.bam \; | sort > "$SAMPLES"
+
+SAMPLE="$(sed -n "${PBS_ARRAYID}p" "$SAMPLES" || true)"
+[ -n "${SAMPLE:-}" ] || exit 0
+
+BAM="$BAM_DIR/${SAMPLE}.dedup.bam"
+GVCF="$OUT_DIR/${SAMPLE}.g.vcf.gz"
+[ -s "$BAM" ] || exit 1
+[ ! -s "$GVCF" ] || exit 0
+
+gatk --java-options "-Xmx8g" HaplotypeCaller \
+  -R "$REF" \
+  -I "$BAM" \
+  -O "$GVCF" \
+  -ERC GVCF \
+  --native-pair-hmm-threads "${PBS_NUM_PPN:-4}" \
+  --annotation QualByDepth \
+  --annotation FisherStrand \
+  --annotation StrandOddsRatio \
+  --annotation RMSMappingQuality \
+  --annotation MappingQualityRankSumTest \
+  --annotation ReadPosRankSumTest
+
+gatk IndexFeatureFile -I "$GVCF"

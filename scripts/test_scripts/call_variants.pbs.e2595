@@ -1,0 +1,29 @@
+/var/spool/torque/mom_priv/jobs/2595.mesxuuyan.SC: line 1: k#!/bin/bash: No such file or directory
+
+PRE-DEFINED PLOIDY FILES
+
+ * Columns are: CHROM,FROM,TO,SEX,PLOIDY
+ * Coordinates are 1-based inclusive.
+ * A '*' means any value not otherwise defined.
+
+GRCh37
+   .. Human Genome reference assembly GRCh37 / hg19
+
+GRCh38
+   .. Human Genome reference assembly GRCh38 / hg38
+
+X
+   .. Treat male samples as haploid and female as diploid regardless of the chromosome name
+
+Y
+   .. Treat male samples as haploid and female as no-copy, regardless of the chromosome name
+
+1
+   .. Treat all samples as haploid
+
+Run as --ploidy <alias> (e.g. --ploidy GRCh37).
+To see the detailed ploidy definition, append a question mark (e.g. --ploidy GRCh37?).
+
+[mpileup] 1 samples in 1 input files
+[mpileup] Error: failed to write the header to standard output
+[E::main_vcfindex] the index file exists. Please use '-f' to overwrite /usr/scratch2/userdata2/mtofflemire/projects/chamaea/out/outgroup_variants.vcf.gz.csi
