@@ -1,0 +1,38 @@
+#!/bin/bash
+#PBS -V
+#PBS -N admixture_leuconotopicus
+#PBS -l nodes=node19:ppn=56,mem=128gb,walltime=500:00:00
+#PBS -q batch
+#PBS -o /usr/scratch2/userdata2/mtofflemire/projects/leuconotopicus/reseq_WD/05_admixture/admixture.log
+#PBS -j oe
+
+set -euo pipefail
+cd "$PBS_O_WORKDIR"
+
+# activate admixture conda environment
+source ~/miniconda3/etc/profile.d/conda.sh
+conda activate admixture_env
+
+VCF=/usr/scratch2/userdata2/mtofflemire/projects/leuconotopicus/reseq_WD/04_vcf/leuconotopicus.cohort_filteredQC.SNPs.autosomes.maf0.05.hwe0.01.miss0.25.r2_0.25.prune2500snp.vcf.gz
+OUTDIR=/usr/scratch2/userdata2/mtofflemire/projects/leuconotopicus/reseq_WD/05_admixture
+PREFIX=${OUTDIR}/leuconotopicus_albolarvatus.pruned
+
+mkdir -p "$OUTDIR"
+
+# Convert VCF to PLINK bed/bim/fam files for ADMIXTURE.
+plink --vcf "$VCF" --double-id --allow-extra-chr --make-bed --out "$PREFIX"
+
+
+
+# Fix .bim for ADMIXTURE by replacing chromosome IDs with numeric codes.
+BIM=${PREFIX}.bim
+awk '{$1=0; print}' OFS='\t' "$BIM" > "${BIM}.tmp"
+mv "${BIM}.tmp" "$BIM"
+
+
+
+# Run ADMIXTURE for K = 1 to 10.
+cd "$OUTDIR"
+for K in {1..10}; do
+  admixture --cv=10 -j56 "${PREFIX}.bed" "$K" | tee "${PREFIX}.K${K}.log"
+done

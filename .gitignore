@@ -1,7 +1,4 @@
 *
-
-!scripts/
-!scripts/**
-
 !.gitignore
-!README.md
+!02_scripts/
+!02_scripts/**

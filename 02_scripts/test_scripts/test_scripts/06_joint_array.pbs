@@ -1,0 +1,47 @@
+#!/bin/bash
+#PBS -V
+#PBS -N gdb_array
+#PBS -l nodes=1:ppn=10,mem=48gb,walltime=12:00:00
+#PBS -q batch
+#PBS -o /usr/scratch2/userdata2/mtofflemire/projects/picoides_genotyping/out/gdb_genotype.$PBS_ARRAYID.log
+#PBS -j oe
+#PBS -t 0-47
+set -euo pipefail
+
+cd "$PBS_O_WORKDIR"
+source ~/miniconda3/etc/profile.d/conda.sh
+conda activate genomics
+
+# Paths
+PRJ=/usr/scratch2/userdata2/mtofflemire/projects/picoides_genotyping
+REF=$PRJ/../references/ncbi_dataset/data/GCF_014839835.1/GCF_014839835.1_bDryPub1.pri_genomic.fna
+OUT=$PRJ/SNP_calling/joint_gatk4_gdb
+SHARDS_DIR=$OUT/shards
+SAMPLE_MAP=$OUT/sample_map.txt
+
+# Local scratch for GenomicsDB (fast I/O)
+TMP="${PBS_JOBTMP:-/tmp}/gatk_${PBS_JOBID:-$$}"
+mkdir -p "$TMP"
+
+# This job's interval file (robust, version-agnostic)
+LIST=$(ls -1 "$SHARDS_DIR"/*.interval_list | sort | sed -n "$((PBS_ARRAYID+1))p")
+
+# Outputs
+ID=$(printf "%03d" "${PBS_ARRAYID}")
+DB=$TMP/genomicsdb.$ID
+VCF=$OUT/cohort.raw.$ID.vcf.gz
+
+# Import + genotype
+gatk --java-options "-Xmx36g -Xms36g -XX:+UseParallelGC" GenomicsDBImport \
+  --sample-name-map "$SAMPLE_MAP" \
+  --genomicsdb-workspace-path "$DB" \
+  --overwrite-existing-genomicsdb-workspace \
+  --tmp-dir "$TMP" \
+  --reader-threads 8 \
+  -L "$LIST"
+
+gatk --java-options "-Xmx36g -Xms36g -XX:+UseParallelGC" GenotypeGVCFs \
+  -R "$REF" \
+  -V "gendb://$DB" \
+  -O "$VCF"
+

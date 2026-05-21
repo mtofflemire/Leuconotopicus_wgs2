@@ -1,0 +1,45 @@
+#!/bin/bash
+#PBS -V
+#PBS -N remove_sex_chroms
+#PBS -l nodes=node19:ppn=20,mem=64gb,walltime=24:00:00
+#PBS -q batch
+#PBS -o /usr/scratch2/userdata2/mtofflemire/projects/leuconotopicus/reseq_WD/04_vcf/remove_sex_chroms.log
+#PBS -j oe
+
+set -euo pipefail
+
+cd "${PBS_O_WORKDIR:-$PWD}"
+
+source ~/miniconda3/etc/profile.d/conda.sh
+conda activate genomics
+
+OUTDIR=/usr/scratch2/userdata2/mtofflemire/projects/leuconotopicus/reseq_WD/04_vcf
+
+INVCF=$OUTDIR/leuconotopicus.cohort_filteredQC.SNPs.vcf.gz
+OUTVCF=$OUTDIR/leuconotopicus.cohort_filteredQC.SNPs.autosomes.vcf.gz
+
+[ -s "$INVCF.tbi" ] || tabix -p vcf "$INVCF"
+
+echo "Removing sex chromosomes..."
+
+bcftools view \
+  -t ^NC_071656.1,NC_071657.1 \
+  --threads 20 \
+  -Oz \
+  -o "$OUTVCF" \
+  "$INVCF"
+
+echo "Indexing filtered VCF..."
+
+tabix -f -p vcf "$OUTVCF"
+
+echo ""
+echo "Checking whether sex chromosomes remain..."
+
+bcftools view -h "$OUTVCF" \
+| grep "NC_071656.1\|NC_071657.1" \
+|| echo "Sex chromosomes successfully removed"
+
+echo ""
+printf "Filtered SNP count: "
+bcftools index -n "$OUTVCF"

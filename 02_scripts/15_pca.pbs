@@ -1,0 +1,34 @@
+#!/bin/bash
+#PBS -V
+#PBS -N pca.whwp
+#PBS -l nodes=node19:ppn=1,mem=32gb,walltime=500:00:00
+#PBS -q batch
+#PBS -o /usr/scratch2/userdata2/mtofflemire/projects/leuconotopicus/reseq_WD/05_pca/pca.log
+#PBS -j oe
+
+
+set -euo pipefail
+
+#set pipefail and conda
+source ~/miniconda3/etc/profile.d/conda.sh
+conda activate genomics
+
+
+
+
+#set vcf and output paths
+cd /usr/scratch2/userdata2/mtofflemire/projects/leuconotopicus
+VCF=reseq_WD/04_vcf/leuconotopicus.cohort_filteredQC.SNPs.autosomes.maf0.05.hwe0.01.miss0.25.r2_0.25.prune2500snp.vcf.gz
+OUTDIR=reseq_WD/2026Analyses/01_pca
+FILE_NAME=leuconotopicus.cohort_filteredQC.SNPs.autosomes.maf0.05.hwe0.01.miss0.25.r2_0.25.prune2500snp
+mkdir -p "$OUTDIR"
+
+
+
+#make plink bed files
+plink --vcf "$VCF" --double-id --allow-extra-chr --set-missing-var-ids @:# --make-bed --out "$OUTDIR/${FILE_NAME}.prune2500snp"
+
+
+
+#run pca
+plink --bfile "$OUTDIR/leuconotopicus" --allow-extra-chr --pca 20 header --out "$OUTDIR/${FILE_NAME}.pca"

@@ -1,0 +1,40 @@
+# 05_joint_genotype_with_combine.pbs
+#!/bin/bash
+#PBS -V
+#PBS -N joint_combine_then_genotype
+#PBS -l nodes=1:ppn=4,mem=24gb,walltime=06:00:00
+#PBS -q batch
+#PBS -o /usr/scratch2/userdata2/mtofflemire/projects/picoides_genotyping/out/joint_combine_then_genotype.log
+#PBS -j oe
+
+set -euo pipefail
+cd "$PBS_O_WORKDIR"
+
+# env
+source ~/miniconda3/etc/profile.d/conda.sh
+conda activate genomics
+
+# paths
+PRJ=/usr/scratch2/userdata2/mtofflemire/projects/picoides_genotyping
+REF=/usr/scratch2/userdata2/mtofflemire/references/ncbi_dataset/data/GCF_014839835.1/GCF_014839835.1_bDryPub1.pri_genomic.fna
+GVCF_DIR=$PRJ/SNP_calling/bams/gvcfs
+OUTDIR=$PRJ/SNP_calling/joint
+mkdir -p "$OUTDIR"
+
+# 1) combine single-sample gVCFs -> multi-sample cohort.g.vcf.gz
+gatk --java-options "-Xmx12g" CombineGVCFs \
+  -R "$REF" \
+  -V "$GVCF_DIR/25002Bns_Palb-SDSU2586_S33_L007.g.vcf.gz" \
+  -V "$GVCF_DIR/25002Bns_Palb-SDSU2592_S42_L007.g.vcf.gz" \
+  -O "$OUTDIR/cohort.g.vcf.gz"
+
+# 2) joint genotype the combined gVCF -> final VCF
+gatk --java-options "-Xmx16g" GenotypeGVCFs \
+  -R "$REF" \
+  -V "$OUTDIR/cohort.g.vcf.gz" \
+  -O "$OUTDIR/cohort.raw.vcf.gz"
+
+echo "Done:"
+echo "  combined gVCF : $OUTDIR/cohort.g.vcf.gz"
+echo "  joint VCF     : $OUTDIR/cohort.raw.vcf.gz"
+

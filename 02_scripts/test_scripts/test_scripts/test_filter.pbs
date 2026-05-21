@@ -1,0 +1,46 @@
+# 10_filter_vcf_like_paper_thin1kb.pbs
+#!/bin/bash
+#PBS -V
+#PBS -N maf001_nomiss_dp5_thin1kb
+#PBS -l nodes=1:ppn=20,mem=64gb,walltime=06:00:00
+#PBS -q batch
+#PBS -o /usr/scratch2/userdata2/mtofflemire/projects/picoides_genotyping/out/vcf_pruned.log
+#PBS -j oe
+
+set -euo pipefail
+cd "$PBS_O_WORKDIR"
+
+# --- env ---
+source ~/miniconda3/etc/profile.d/conda.sh
+conda activate genomics
+
+# --- paths ---
+OUT2=/usr/scratch2/userdata2/mtofflemire/projects/picoides_genotyping/out2
+IN=$OUT2/picoides.snps.filteredQC.vcf.gz
+OUT=$OUT2/picoides.snps.pruned.like_paper.thin1kb.vcf.gz
+
+# --- prep ---
+[ -s "$IN.tbi" ] || tabix -p vcf "$IN"
+
+# --- filter to match the paper, then thin to 1kb ---
+#   - bi-allelic SNPs only
+#   - MAF >= 0.01
+#   - no missing genotypes (F_MISSING == 0)
+#   - mean site depth >= 5x (INFO/DP total depth divided by NS called samples)
+#   - thinning: keep at most 1 SNP per 1 kb window (no LD calc)
+bcftools +fill-tags "$IN" -Ou -- -t MAF,F_MISSING,NS \
+| bcftools view -Ou -v snps -m2 -M2 \
+| bcftools view -Ou -i 'MAF>=0.01 && F_MISSING==0 && INFO/DP/NS >= 5' \
+| bcftools +prune -Ou -n 1 -w 1kb \
+| bcftools view -Oz -o "$OUT"
+
+tabix -f -p vcf "$OUT"
+
+# --- sanity checks ---
+echo "Input variant count:   $(bcftools view -H "$IN"  | wc -l)"
+echo "Output variant count:  $(bcftools view -H "$OUT" | wc -l)"
+echo "Preview of filtered sites:"
+bcftools view -H "$OUT" | head -5
+
+echo "Done. Output: $OUT"
+

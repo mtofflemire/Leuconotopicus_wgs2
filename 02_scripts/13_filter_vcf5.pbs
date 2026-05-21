@@ -1,0 +1,30 @@
+#!/bin/bash
+#PBS -V
+#PBS -N popgen_filter
+#PBS -l nodes=node19:ppn=20,mem=64gb,walltime=500:00:00
+#PBS -q batch
+#PBS -o /usr/scratch2/userdata2/mtofflemire/projects/leuconotopicus/reseq_WD/04_vcf/popgen_filter.log
+#PBS -j oe
+
+set -euo pipefail
+
+cd "${PBS_O_WORKDIR:-$PWD}"
+
+source ~/miniconda3/etc/profile.d/conda.sh
+conda activate genomics
+
+OUTDIR=/usr/scratch2/userdata2/mtofflemire/projects/leuconotopicus/reseq_WD/04_vcf
+
+INVCF=$OUTDIR/leuconotopicus.cohort_filteredQC.SNPs.autosomes.vcf.gz
+OUTVCF=$OUTDIR/leuconotopicus.cohort_filteredQC.SNPs.autosomes.maf0.05.hwe0.01.miss0.25.r2_0.25.prune2500snp.vcf.gz
+
+[ -s "$INVCF.tbi" ] || tabix -p vcf "$INVCF"
+
+bcftools +fill-tags "$INVCF" --threads 20 -Ou -- -t MAF,HWE,F_MISSING \
+| bcftools view -v snps -m2 -M2 -i 'MAF[0]>=0.05 && HWE>=0.01 && F_MISSING<=0.25' --threads 20 -Ou \
+| bcftools +prune -m r2=0.25 -w 2500bp -Oz -o "$OUTVCF"
+
+tabix -f -p vcf "$OUTVCF"
+
+printf "Popgen filtered SNP count: "
+bcftools index -n "$OUTVCF"

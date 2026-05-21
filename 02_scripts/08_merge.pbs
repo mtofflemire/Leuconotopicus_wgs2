@@ -1,0 +1,48 @@
+#!/bin/bash
+#PBS -V
+#PBS -N gather_raw_leuconotopicus
+#PBS -l nodes=node19:ppn=4,mem=64gb,walltime=500:00:00
+#PBS -q batch
+#PBS -o /usr/scratch2/userdata2/mtofflemire/projects/leuconotopicus/reseq_WD/04_vcf/merge.log
+#PBS -j oe
+
+set -euo pipefail
+cd "$PBS_O_WORKDIR"
+
+source ~/miniconda3/etc/profile.d/conda.sh
+conda activate genomics
+
+#set paths
+PRJ=/usr/scratch2/userdata2/mtofflemire/projects/leuconotopicus
+REF=$PRJ/ref_genome/GCF_014839835.1_bDryPub1.pri_genomic.fna
+DICT=${REF%.fna}.dict
+IN_DIR=$PRJ/reseq_WD/04_vcf
+OUT_DIR=$PRJ/reseq_WD/04_vcf
+UNSORTED_VCF=$OUT_DIR/leuconotopicus_raw.unsorted.vcf.gz
+FINAL_VCF=$OUT_DIR/leuconotopicus_raw.vcf.gz
+
+
+mkdir -p "$OUT_DIR"
+cd "$IN_DIR"
+
+
+# Gather shards -> temporary unsorted cohort VCF
+gatk GatherVcfs \
+  $(printf -- '-I cohort.%03d.vcf.gz ' $(seq 0 47)) \
+  -O "$UNSORTED_VCF"
+
+
+# Sort merged VCF -> final raw cohort VCF
+gatk SortVcf \
+  -I "$UNSORTED_VCF" \
+  -O "$FINAL_VCF" \
+  --SEQUENCE_DICTIONARY "$DICT"
+
+
+# Remove temporary unsorted VCF after successful sorting
+rm -f "$UNSORTED_VCF"
+
+
+# Index the sorted final VCF
+gatk IndexFeatureFile \
+  -I "$FINAL_VCF"

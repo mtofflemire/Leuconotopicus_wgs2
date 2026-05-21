@@ -1,0 +1,51 @@
+#!/bin/bash
+#PBS -V
+#PBS -N filter.vcf.whwp
+#PBS -l nodes=node19:ppn=4,mem=64gb,walltime=500:00:00
+#PBS -q batch
+#PBS -j oe
+
+set -euo pipefail
+
+LOG=/usr/scratch2/userdata2/mtofflemire/projects/leuconotopicus/reseq_WD/04_vcf/remove_outgroups.log
+mkdir -p "$(dirname "$LOG")"
+exec > "$LOG" 2>&1
+
+cd "${PBS_O_WORKDIR:-$PWD}"
+
+source ~/miniconda3/etc/profile.d/conda.sh
+conda activate genomics
+
+VCF=/usr/scratch2/userdata2/mtofflemire/projects/leuconotopicus/reseq_WD/04_vcf/leuconotopicus_raw.vcf.gz
+OUTDIR=/usr/scratch2/userdata2/mtofflemire/projects/leuconotopicus/reseq_WD/04_vcf
+REMOVE_LIST=$OUTDIR/outgroup.samples.txt
+OUTVCF=$OUTDIR/leuconotopicus.cohort_raw.vcf.gz
+
+cat > "$REMOVE_LIST" << EOF
+25529Bns_Dnut-SDNHM56736_S96_L003
+25529Bns_Pvil-SDNHM55486_S94_L003
+EOF
+
+[[ -s "$VCF" ]] || {
+    exit 1
+}
+
+FOUND_COUNT=$(bcftools query -l "$VCF" | grep -Fxf "$REMOVE_LIST" | wc -l)
+EXPECTED_COUNT=$(wc -l < "$REMOVE_LIST")
+
+if [[ "$FOUND_COUNT" -ne "$EXPECTED_COUNT" ]]; then
+    exit 1
+fi
+
+bcftools query -l "$VCF" | wc -l
+
+bcftools view \
+    --samples-file ^"$REMOVE_LIST" \
+    --threads 4 \
+    -Oz \
+    -o "$OUTVCF" \
+    "$VCF"
+
+tabix -f -p vcf "$OUTVCF"
+
+bcftools query -l "$OUTVCF" | wc -l

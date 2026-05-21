@@ -1,0 +1,32 @@
+#!/bin/bash
+#PBS -V
+#PBS -N select_snps
+#PBS -l nodes=node19:ppn=20,mem=64gb,walltime=500:00:00
+#PBS -q batch
+#PBS -o /usr/scratch2/userdata2/mtofflemire/projects/leuconotopicus/reseq_WD/04_vcf/select_snps.log
+#PBS -j oe
+
+set -euo pipefail
+
+cd "${PBS_O_WORKDIR:-$PWD}"
+
+source ~/miniconda3/etc/profile.d/conda.sh
+conda activate genomics
+
+OUTDIR=/usr/scratch2/userdata2/mtofflemire/projects/leuconotopicus/reseq_WD/04_vcf
+INVCF=$OUTDIR/leuconotopicus.cohort_raw.vcf.gz
+SNPVCF=$OUTDIR/leuconotopicus.cohort_raw.SNPs.vcf.gz
+
+[ -s "$INVCF.tbi" ] || tabix -p vcf "$INVCF"
+
+bcftools view \
+  -v snps \
+  --threads 20 \
+  -Oz \
+  -o "$SNPVCF" \
+  "$INVCF"
+
+tabix -f -p vcf "$SNPVCF"
+
+bcftools index -n "$SNPVCF"
+

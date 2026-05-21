@@ -1,0 +1,28 @@
+#!/bin/bash
+#PBS -V
+#PBS -l nodes=1:ppn=16
+#PBS -l mem=128gb
+#PBS -l walltime=12:00:00
+#PBS -N convert_bcf_to_vcf
+#PBS -j oe
+#PBS -M mtofflemire@sdsu.edu
+#PBS -o /usr/scratch2/userdata2/mtofflemire/projects/chamaea/out/convert_bcf_to_vcf.log
+#PBS -q batch
+
+# Change to the working directory
+cd $PBS_O_WORKDIR
+
+# Set output directory
+OUTDIR="/usr/scratch2/userdata2/mtofflemire/projects/chamaea/out"
+
+# Activate Conda environment
+source ~/miniconda3/etc/profile.d/conda.sh
+conda activate outgroup_align
+
+# Step 1: Convert existing BCF to VCF
+bcftools view -Oz -o $OUTDIR/outgroup_variants.vcf.gz $OUTDIR/outgroup_variants.bcf
+
+# Step 2: Index the new VCF
+bcftools index $OUTDIR/outgroup_variants.vcf.gz
+
+echo "✅ BCF to VCF conversion complete! Output saved in: $OUTDIR"

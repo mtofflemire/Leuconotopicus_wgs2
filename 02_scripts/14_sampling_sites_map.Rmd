@@ -1,0 +1,119 @@
+---
+title: "11_sampling_sites_map"
+output: html_document
+date: "2026-05-17"
+---
+
+##sampling sites
+This map shows the geographic sampling locations used in the study across the distribution of the species.
+
+```{r, message=FALSE, warning=FALSE, results='hide'}
+
+setwd("/Users/michaeltofflemire/Mtofflemire Dropbox/Michael Tofflemire/Projects/Leuconotopicus_wgs/01_data")
+
+
+
+library(tidyverse)
+library(readxl)
+library(sf)
+library(terra)
+library(tigris)
+library(ggplot2)
+library(ggrepel)
+library(igraph)
+
+options(tigris_use_cache = TRUE)
+map_crs <- 3310
+
+
+data <- read_excel("Leuconotopicus_albolarvatus_Meta.xlsx")
+data <- data %>%
+  filter(!is.na(Latitude), !is.na(Longitude), !is.na(Ecoregion), !is.na(Subspecies))
+data$Ecoregion <- as.factor(data$Ecoregion)
+data$Subspecies <- as.factor(data$Subspecies)
+data_sf <- data %>%
+  st_as_sf(coords = c("Longitude", "Latitude"), crs = 4326, remove = FALSE) %>%
+  st_transform(map_crs)
+
+
+
+custom_cols <- c(
+  "#00A087",
+  "#902F21",
+  "#3C5488",
+  "#4DBBD5",
+  "#9DAAC4",
+  "#E64B35",
+  "#0F1522",
+  "#F2A59A"
+)
+
+
+
+ecoregion_cols <- setNames(custom_cols[1:length(levels(data_sf$Ecoregion))],levels(data_sf$Ecoregion))
+subspecies_shapes <- setNames(c(16, 17),levels(data_sf$Subspecies))
+
+
+
+# Points within this distance are counted together
+# Because the map is projected, this is in meters
+cluster_distance_m <- 10000
+cluster_ids <- st_is_within_distance(data_sf, data_sf, dist = cluster_distance_m)
+cluster_graph <- igraph::graph_from_adj_list(cluster_ids, mode = "all")
+data_sf$locality_cluster <- igraph::components(cluster_graph)$membership
+
+
+
+
+point_coords <- st_coordinates(data_sf)
+
+data_label_coords <- data_sf %>%
+  st_drop_geometry() %>%
+  mutate(x = point_coords[, 1], y = point_coords[, 2])
+label_data <- data_label_coords %>%
+  group_by(locality_cluster) %>%
+  summarise(x = mean(x), y = mean(y), n = n(), .groups = "drop")
+
+
+
+states_sf <- states(cb = TRUE, year = 2022) %>%
+  filter(STUSPS %in% c("CA", "OR", "WA")) %>%
+  st_transform(map_crs)
+
+
+habitat <- rast("bWHWOx_CONUS_HabMap_2001v1.tif")
+states_vect <- vect(st_transform(states_sf, crs(habitat)))
+habitat_crop <- crop(habitat,states_vect)
+habitat_crop <- mask(habitat_crop, states_vect)
+habitat_crop <- aggregate(habitat_crop,fact = 20, fun = max, na.rm = TRUE)
+habitat_crop <- project(habitat_crop, paste0("EPSG:", map_crs))
+habitat_df <- as.data.frame(habitat_crop, xy = TRUE, na.rm = TRUE)
+names(habitat_df)[3] <- "habitat"
+habitat_df <- habitat_df %>%
+  filter(habitat > 0)
+
+
+
+
+ggplot() +
+  geom_sf(data = states_sf, fill = "grey92", color = "white", linewidth = 0.3) +
+  geom_raster(data = habitat_df, aes(x = x, y = y), fill = "grey40", alpha = 0.18) +
+  geom_sf(data = data_sf, aes(color = Ecoregion, shape = Subspecies), size = 3, alpha = 0.95) +
+  scale_color_manual(values = ecoregion_cols) +
+  scale_shape_manual(values = subspecies_shapes) +
+  geom_text_repel(data = label_data,aes(x = x,y = y,label = n),nudge_x = 3500, nudge_y = 3500, hjust = 0, vjust = 0, size = 3, color = "black", fontface = "bold", box.padding = 0.10, point.padding = 0.08, force = 0.45, force_pull = 1.5, max.time = 1, max.iter = 10000, min.segment.length = 0.12, segment.color = "grey35", segment.linewidth = 0.25, segment.alpha = 0.65, seed = 123) +
+  coord_sf(crs = st_crs(map_crs), expand = FALSE) +
+  theme_void() +
+  theme(legend.position = "right",legend.title = element_blank(), plot.title = element_text(face = "bold", size = 16, hjust = 0.5), panel.background = element_rect(fill = "white", color = NA), plot.background = element_rect(fill = "white",color = NA)) 
+
+
+
+
+ggsave("../02_analysis/01_Sample_Map/Leuconotopicus_albolarvatus_sampling_map.png", height = 7, width = 6, dpi = 600)
+ggsave("../02_analysis/01_Sample_Map/Leuconotopicus_albalarvatus_sampling_map.pdf", height = 7, width = 6, useDingbats = FALSE)
+
+
+
+```
+
+

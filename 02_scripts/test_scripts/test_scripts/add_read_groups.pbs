@@ -1,0 +1,36 @@
+#!/bin/bash
+#PBS -V
+#PBS -l nodes=1:ppn=16
+#PBS -l mem=128gb
+#PBS -l walltime=12:00:00
+#PBS -N add_read_groups_outgroup
+#PBS -j oe
+#PBS -M mtofflemire@sdsu.edu
+#PBS -o /usr/scratch2/userdata2/mtofflemire/projects/chamaea/out/add_read_groups.log
+#PBS -q batch
+
+# Change to working directory
+cd $PBS_O_WORKDIR
+
+# Activate Conda environment
+source ~/miniconda3/etc/profile.d/conda.sh
+conda activate outgroup_align
+
+# Set paths
+PICARD_JAR="/home/mtofflemire/.conda/pkgs/picard-3.0.0-hdfd78af_0/share/picard-3.0.0-0/picard.jar"
+IN_BAM="/usr/scratch2/userdata2/mtofflemire/projects/chamaea/out/outgroup_aligned.bam"
+OUT_BAM="/usr/scratch2/userdata2/mtofflemire/projects/chamaea/out/outgroup_RG.bam"
+
+# Run Picard AddOrReplaceReadGroups
+java -jar $PICARD_JAR AddOrReplaceReadGroups \
+    I=$IN_BAM \
+    O=$OUT_BAM \
+    RGID=1 \
+    RGLB=outgroup_lib \
+    RGPL=ILLUMINA \
+    RGPU=unit1 \
+    RGSM=outgroup \
+    CREATE_INDEX=true \
+    VALIDATION_STRINGENCY=LENIENT
+
+echo "✅ Read group addition complete!"
