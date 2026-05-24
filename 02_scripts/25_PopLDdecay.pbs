@@ -1,0 +1,38 @@
+#!/bin/bash
+#PBS -V
+#PBS -N LDdecay.leuconotopicus
+#PBS -l nodes=node19:ppn=20,mem=128gb,walltime=72:00:00
+#PBS -q batch
+#PBS -j oe
+#PBS -o /usr/scratch2/userdata2/mtofflemire/projects/leuconotopicus/reseq_WD/LD_DECAY_analysis/leuconotopicus_PopLDdecay.log
+
+set -euo pipefail
+
+source ~/miniconda3/etc/profile.d/conda.sh
+conda activate genomics
+
+WORKDIR=/usr/scratch2/userdata2/mtofflemire/projects/leuconotopicus/reseq_WD/06_LD_DECAY_analysis
+VCF_DIR=/usr/scratch2/userdata2/mtofflemire/projects/leuconotopicus/reseq_WD/04_vcf/subspecies_vcfs
+POPLD=/usr/scratch2/userdata2/mtofflemire/projects/chamaea/2026_WD/LD_DECAY_analysis/PopLDdecay/bin/PopLDdecay
+
+mkdir -p "$WORKDIR"
+cd "$WORKDIR"
+
+for POP in albolarvatus_CA_samps albolarvatus_WA_OR_samps gravirostris_samps
+do
+  VCF=$VCF_DIR/$POP.cohort_filteredQC.SNPs.autosomes.maf0.05.miss0.10.biallelic.vcf.gz
+  OUT=$WORKDIR/$POP.poplddecay
+
+  echo
+  echo "Running PopLDdecay for $POP"
+  echo "VCF: $VCF"
+  echo "OUT: $OUT"
+
+  "$POPLD" \
+    -InVCF "$VCF" \
+    -MaxDist 50 \
+    -OutStat "$OUT"
+done
+
+echo
+echo "Finished LD decay runs."

@@ -1,0 +1,62 @@
+#!/bin/bash
+#PBS -V
+#PBS -N subspecies_vcfs
+#PBS -l nodes=node19:ppn=56,mem=64gb,walltime=500:00:00
+#PBS -q batch
+#PBS -o /usr/scratch2/userdata2/mtofflemire/projects/leuconotopicus/reseq_WD/04_vcf/subspecies_vcfs_autosomes_maf0.05_miss0.10.log
+#PBS -j oe
+
+set -euo pipefail
+
+cd "${PBS_O_WORKDIR:-$PWD}"
+
+source ~/miniconda3/etc/profile.d/conda.sh
+conda activate genomics
+
+VCF_DIR=/usr/scratch2/userdata2/mtofflemire/projects/leuconotopicus/reseq_WD/04_vcf
+SCRIPT_DIR=/usr/scratch2/userdata2/mtofflemire/projects/leuconotopicus/scripts
+OUT_DIR=$VCF_DIR/subspecies_vcfs
+
+VCF=$VCF_DIR/leuconotopicus.cohort_filteredQC.SNPs.autosomes.vcf.gz
+
+mkdir -p "$OUT_DIR"
+
+[ -s "$VCF.tbi" ] || tabix -p vcf "$VCF"
+
+for POP in albolarvatus_CA_samps albolarvatus_WA_OR_samps gravirostris_samps
+do
+  SAMPLE_FILE=$SCRIPT_DIR/$POP.txt
+  OUTVCF=$OUT_DIR/$POP.cohort_filteredQC.SNPs.autosomes.maf0.05.miss0.10.biallelic.vcf.gz
+
+  echo
+  echo "Filtering $POP"
+  echo "Samples: $SAMPLE_FILE"
+  echo "Output: $OUTVCF"
+
+  bcftools view \
+    -S "$SAMPLE_FILE" \
+    -m2 \
+    -M2 \
+    -v snps \
+    --threads 56 \
+    -Ou \
+    "$VCF" \
+  | bcftools +fill-tags \
+    --threads 56 \
+    -Ou \
+    -- -t MAF,F_MISSING \
+  | bcftools view \
+    --threads 56 \
+    -i 'F_MISSING <= 0.10 && MAF >= 0.05' \
+    -Oz \
+    -o "$OUTVCF"
+
+  tabix -f -p vcf "$OUTVCF"
+
+  printf "$POP filtered autosome SNP count: "
+  bcftools index -n "$OUTVCF"
+done
+
+echo
+echo "Finished:"
+echo "$OUT_DIR"

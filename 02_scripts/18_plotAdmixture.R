@@ -2,13 +2,14 @@
 library(tidyverse)
 library(gtools)
 library(patchwork)
+library(readxl)
 
 # file paths
-base_dir <- '/Users/michaeltofflemire/Mtofflemire Dropbox/Michael Tofflemire/Projects/Leuconotopicus_wgs/02_analysis/03_ADMIXTURE/seed43'
-prefix <- "whwp_SNPdata1"
+base_dir <- '/Users/michaeltofflemire/Mtofflemire Dropbox/Michael Tofflemire/Projects/Leuconotopicus_wgs/03_analysis/03_admixture'
+prefix <- "leuconotopicus_albolarvatus.pruned"
 
 famfile <- file.path(base_dir, paste0(prefix, ".fam"))
-metadata_file <- '/Users/michaeltofflemire/Mtofflemire Dropbox/Michael Tofflemire/Projects/Leuconotopicus_wgs/01_data/whwo_Meta.xlsx'
+metadata_file <- '/Users/michaeltofflemire/Mtofflemire Dropbox/Michael Tofflemire/Projects/Leuconotopicus_wgs/01_data/Leuconotopicus_albolarvatus_Meta.xlsx'
 
 k_values <- 2:10
 stacked_k_values <- 3:10
@@ -27,10 +28,10 @@ ecoregion_abbrev <- c(
 ecoregion_labels <- paste0(ecoregion_abbrev, " [", seq_along(ecoregion_abbrev), "]")
 
 cluster_palette <- c(
-  "ancestral1" = "salmon",
-  "ancestral2" = "cyan3",
-  "ancestral3" = "green",
-  "ancestral4" = "purple",
+  "ancestral1" = "#E54B34",
+  "ancestral2" = "#4EBAD4",
+  "ancestral3" = "#029F86",
+  "ancestral4" = "#E89D88",
   "ancestral5" = "orange",
   "ancestral6" = "blue",
   "ancestral7" = "magenta",
@@ -39,6 +40,22 @@ cluster_palette <- c(
   "ancestral10" = "brown"
 )
 
+
+
+
+cluster_palette <- c(
+  "ancestral1"  = "#E54B34",  # coral red
+  "ancestral2"  = "#4EBAD4",  # sky blue
+  "ancestral3"  = "#029F86",  # teal
+  "ancestral4"  = "#E89D88",  # peach
+  
+  "ancestral5"  = "#405789",  # muted navy
+  "ancestral6"  = "#7A9E7E",  # sage green
+  "ancestral7"  = "#C37AA5",  # dusty pink
+  "ancestral8"  = "#D9A441",  # muted gold
+  "ancestral9"  = "#8D8D8D",  # soft gray
+  "ancestral10" = "#7A5C4B"   # muted brown
+)
 # load shared data
 fam <- read.table(famfile, header = FALSE)
 metadata <- read_excel(metadata_file)
@@ -134,6 +151,12 @@ make_plot_data <- function(K) {
     mutate(cluster = factor(cluster, levels = rev(cluster_names)))
 }
 
+
+
+
+
+
+
 # individual plot function
 plot_admixture_individual <- function(K) {
   
@@ -141,7 +164,7 @@ plot_admixture_individual <- function(K) {
   plot_data <- make_plot_data(K)
   
   ggplot(plot_data, aes(SequenceID, ancestry, fill = cluster)) +
-    geom_col(color = "gray30", linewidth = 0.08, width = 1) +
+    geom_col(color = "gray30", linewidth = 0.08, width = 0.90) +
     facet_grid(~ EcoAbbrev, switch = "x", scales = "free_x", space = "free_x") +
     labs(title = paste0("K = ", K), y = "Ancestry", x = NULL) +
     scale_y_continuous(expand = c(0, 0)) +
@@ -157,8 +180,8 @@ plot_admixture_individual <- function(K) {
       axis.ticks.x = element_blank(),
       strip.placement = "outside",
       strip.text.x = element_text(angle = 0, hjust = 0.5, vjust = 0.5, size = 7),
-      axis.title.y = element_text(size = 8),
-      axis.text.y = element_text(size = 7)
+      axis.title.y = element_text(size = 14),
+      axis.text.y = element_text(size = 12)
     )
 }
 
@@ -186,8 +209,8 @@ stacked_plot <-
     strip.placement = "outside",
     strip.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5, size = 8),
     strip.text.y = element_text(size = 9, face = "bold"),
-    axis.title.y = element_text(size = 10),
-    axis.text.y = element_text(size = 8)
+    axis.title.y = element_text(size = 14),
+    axis.text.y = element_text(size = 12)
   )
 
 # save individual plots
@@ -201,7 +224,7 @@ for (K in k_values) {
     file.path(base_dir, paste0(prefix, "_ADMIXTURE_K", K, "_by_ecoregion_K2_aligned.pdf")),
     p,
     width = 10,
-    height = 3,
+    height = 2,
     useDingbats = FALSE
   )
   
@@ -209,7 +232,7 @@ for (K in k_values) {
     file.path(base_dir, paste0(prefix, "_ADMIXTURE_K", K, "_by_ecoregion_K2_aligned.png")),
     p,
     width = 10,
-    height = 3,
+    height = 2,
     dpi = 600
   )
 }
